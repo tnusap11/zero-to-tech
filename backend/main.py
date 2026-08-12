@@ -6,6 +6,13 @@ from pydantic import BaseModel
 # CORSMiddleware 是 FastAPI 提供的一个中间件，用于处理跨域请求
 from fastapi.middleware.cors import CORSMiddleware
 
+# pypinyin 是一个用于将中文转换为拼音的库，这里导入了 lazy_pinyin 函数和 Style 枚举
+from pypinyin import lazy_pinyin, Style
+
+# snownlp 是一个用于中文文本处理的库，这里导入了 SnowNLP 类
+from snownlp import SnowNLP
+
+
 # 创建 FastAPI 应用实例
 app = FastAPI()
 
@@ -14,12 +21,12 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],  # 允许所有来源的请求
     allow_methods=["GET", "POST"],  # 允许所有 HTTP 方法
-    allow_headers=["*"],  # 允许所有请求头
+    # allow_headers=["*"],  # 允许所有请求头
 )
 
 # 定义一个简单的配置文件，包含关于我们的信息
 profiles = {
-    "heroTitle": "关于我",
+    "heroTitle": "关于我（来自后端）",
     "heroSubtitle": "项目，创意，灵感，心得，我的作品",
     "featuredWork": {
         "kicker": "作品",
@@ -39,15 +46,27 @@ class AnalysisRequest(BaseModel):
     text: str
 
 
+def score_label(score):
+    if score >= 0.6:
+        return "偏积极"
+    elif score <= 0.4:
+        return "偏消极"
+    else:
+        return "中性"
+
+
 # 定义一个 POST 请求的路由，接收文本数据并返回分析结果
 @app.post("/api/analyze")
 def analyze(req: AnalysisRequest):
     # 这里可以添加对 req.text 的分析逻辑
+    text = req.text
+    # 使用 SnowNLP 进行情感分析
+    score = round(SnowNLP(text).sentiments, 2)
     return {
-        "text": req.text,
-        "score": 0.5,
-        "label": "偏平静",
-        "pinyin": "（模块 6 再说）",
+        "text": text,
+        "score": score,
+        "label": score_label(score),
+        "pinyin": " ".join(lazy_pinyin(text, style=Style.TONE)),
     }
 
 
